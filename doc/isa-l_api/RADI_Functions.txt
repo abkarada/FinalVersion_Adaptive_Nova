@@ -1,0 +1,25 @@
+--RAID Functions--
+Functions in the RAID section calculate and operate on XOR and P+Q parity
+found in common RAID impelementations.
+
+Find one or two parity bytes for each byte in N sources such that single 
+or dual disk failures(one or two erasures) can be corrected.
+
+For RAID5, a block of parity is calculated by the xor across the N source arrays.
+Each parity byte is calculated from N sources by:
+
+P = D0 + D1 + ...+D(N-1)
+
+xor_gen()
+
+int xor_gen (
+int vects,
+int len,
+void ∗∗ array )
+
+xor_check()
+
+int xor_check (
+int vects,
+int len,
+void ∗∗ array )

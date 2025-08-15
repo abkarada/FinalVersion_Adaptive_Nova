@@ -1,0 +1,67 @@
+--Ghost Pads--
+A ghost pad is a pad from some element in the bin that can be accessed
+directly from the bin as well. Compare it to a symbolic link in UNIX
+filesystems. Using ghost pads on bins, the bin also has a pad and can
+transparently be used as an element in other parts of your code.
+
+Bin without ghost pads
+
+   [ Bin ]
+     |
+     +--[ Element 1 ]
+     |      sink ---> src
+     |
+     +--[ Element 2 ]
+            sink
+
+The Bin itself has no pads.
+To feed data into Element 1, you must link directly to its sink pad,
+because the Bin has no exposed sink or src pads of its own.
+
+Bin with a ghost pad (sink only)
+
+   [ Bin ]
+     sink (ghost) ----> [ Element 1 ]
+                             sink ---> src ---> [ Element 2 ]
+                                                   sink
+
+The ghost pad is a proxy pad.
+Bin's sink pad is mapped internally to Element 1's sink pad.
+From the outside, the Bin looks like a single element with a sink pad.
+
+Bin with ghost pads for both sink and src
+   [ Bin ]
+     sink (ghost) ----> [ Element 1 ] ---> ... ---> src (ghost)
+                                          |
+                                          v
+                                        [ Element 2 ]
+
+Now the Bin has both:
+- A ghost sink pad (to receive data from outside)
+- A ghost src pad (to send data out)
+
+From the outside, the Bin behaves like a normal element with both sink and src pads.
+
+And Code goes like::
+
+#include <gst/gst.h>
+
+int main(int argc, char **argv)
+{
+
+GstElement *bin, *sink;
+GstPad *pad;
+
+gst_init(&argc, &argv);
+
+sink = gst_element_factory_make("fakesink", "sink");
+bin = gst_bin_new("mybin");
+gst_bin_Add(GST_BIN(bin), sink);
+
+/* Add ghost pad */
+pad = gst_element_get_static_pad(sink, "sink");
+gst_element_add_pad(bin, gst_ghost_pad_new("sink", pad));
+gst_object_unref(GST_OBJECT(pad));
+[..]
+
+}

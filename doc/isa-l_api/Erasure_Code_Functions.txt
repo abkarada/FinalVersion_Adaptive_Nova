@@ -1,0 +1,44 @@
+--Erasure Code Functions--
+Functions pertaining to erasure codes implement a general Reed-Solomon type 
+encoding for blocks of data to protect
+against erasure of whole blocks. Individual operations can be described in
+terms of arithmetic in the Galois finite field
+GF(2∧8) with the particular field-defining primitive or reducing polynomial:
+
+x^8 + x^4 + x^3 + x^2 + 1(0x1d)
+
+ec_encode_data():
+
+void ec_encode_data(
+		int len,
+		int k,
+		int rows,
+		unsigned char *gftbls,
+		unsigned char **data,
+		unsigned char **coding
+)
+
+len: Length of each block of data(vector) of source or dest data.
+k: The number of vector sources or rows in the generator matrix for coding.
+rows: The number of output vectors to concurrently encode/decode.
+
+ec_init_tables()
+
+void ec_init_tables(
+	int k,
+	int rows,
+	unsigned char *a,
+	unsigned char *gftbls)
+
+Initialize tables for fast Erasure Code encode and decode.
+Generates the expanded tables needed for fast encode or decode
+for erasure codes on blocks of data. 32bytes is
+generated for each input coefficient.
+
+k: The number of vector sources or rows in the generator matrix for coding.
+rows: The number of output vectors to concurrently encode/decode.
+a:Pointer to sets of arrays of input coefficients used to encode or decode data.
+gftbls: Pointer to start of space for concatenated output tables generated from
+input coefficients. Must be of size
+32∗k∗rows.
+

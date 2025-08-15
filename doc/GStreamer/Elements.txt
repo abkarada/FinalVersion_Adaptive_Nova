@@ -1,0 +1,140 @@
+--GstElement object--
++Every encoder,decoder,demuxer, video or audio output
+is in fact a GstElement.
+
+//What are elements//
++You can think as a black boxes.On the one end,you might put
+something in,the element does something with it and something
+else comes out at the other side.
+For example think a decoder it takes a encoded data 
+and output decoded data::
+
++------------+        +-------------+     +--------------+                      
+|	     |        |	            |     |	         |
+|Encoded Data| -----> |   Decoder   |---->| Decoded Data |
+|	     |	      |	            |     |	         |
++------------+        +-------------+     +--------------+ 
+
+Source elements do not accept data, they only generate data.
+A source pad can only generate data.
+
+//Filters,convertors,demuxers, muxers and codecs//
+Filters and filter-like elements have both input and ouputs pads.
+They operate on data that receive on their input pads-->Sink
+And will provide data on therir output pads-->Source
+
+Filter-like elements can have any numver of source or sink pads.
+
+Filter looks like this:
+
+	+---Filter------+                
+	|		|
+	+------+ +------+
+	| sink | |  src |       
+	+------+ +------+
+	|               |
+	+---------------+
+
+//Creating a GstElement//
+
+Easiest way to craate an element is to use
+gst_element_factory_make().
+
+of course you must include gst lib for accessing library 
+functions.
+
+Useage goes like :
+
+#include <gst/gst.h>
+
+int main(int argc, char **argv){
+
+GstElement *element;
+
+/*init GStreamer */
+
+gst_init(&argc, &argv); //->It must called in the main application
+
+/*create element */
+
+element = gst_element_factory_make("fakesrc", "source");
+
+/*this gst_element_factory_make function takes two parameter
+/first is factory name second one is name for newly created element.
+*/
+if(!element){
+	g_print("Failed to create element of type 'fakesrc'\n");
+		return -1;
+	}
+
+gst_object_unref(GST_OBJECT(element));
+/*When you dont use element anymore you can simply use:
+/ gst_object_unref(GST_OBJECT(element_name));
+*/
+return 0;
+}
+
+//What is GstElementFactory//
+GstElementFactory is used to create instances of elements.
+A GstElementFactoru can be added to a GstPlugin as it as also
+a GstPluginFeature.
+
+--Use the gst_element_factory_find and gst_element_factory_create functions
+to create element instances or use gst_element_factory_make as conbenient
+shortcut.
+
+The following code examples shows you how to create a GstFileSrc element.
+
+#include <gst/gst.h>
+
+int main(int arc, char **argv){
+
+GstElement *src;
+GstElementFactory *srcfactory;
+
+gst_init(&arc, &argv);
+
+srcfactory = gst_element_factory_find("filesrc");
+g_return_if_fail(srcfactory != NULL);
+src = gst_element_factory_create(srcfactory, "src");
+g_return_if_fail(src != NULL);
+
+...
+
+}
+//Using an Element as a GObcject//
+The usual GObject methods to query, set and get property values
+and GParamSpecs are therefore supported.
+
+Evejy GstElement inherits at least one property from its parent
+GstObject:the "name" property.This is the name you provide to functions
+gst_element_factory_make() or gst_element_factory_create().
+You can get and set this property using the functions gst_object_set_name
+and gst_object_get_name or use the GObject property mechanism as shown bellow.
+
+#include <gst/gst.h>
+
+int main(int argc, char **argv)
+{
+	GstElement *element;
+	gchar *name;
+
+	/*init GStreamer*/
+	gst_init(&argc, &argv);
+
+	/*create element */
+	element = gst_element_factory_make("fakesrc", "source");
+	
+//This is also merged gst_element_factory_find() & gst_element_factory_create()
+
+/* Get Name */
+
+	g_object_get(G_OBJECT(element),"name",  &name, NULL);
+	g_print("The name of the element is '%s'.\n", name);
+	g_free(name);
+
+	gst_object_unref(GST_OBJECT(element));
+
+		return 0;
+	}
+

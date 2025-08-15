@@ -1,0 +1,58 @@
+--Using Capabilities for Metadata--
+A pad can have a set of capabilities attached to it.
+Capabilities(GstCaps) are represented as an array of 
+one or more GstStructure ,and each GstStructure is an
+array of fields where eaxh field consists of a field
+name string and a typed value.
+Here is an example of how to extract the width and height
+from a set of fixed video caps:
+
+static void
+read_video_props (GstCaps *caps)
+{
+  gint width, height;
+  const GstStructure *str;
+
+  g_return_if_fail (gst_caps_is_fixed (caps));
+
+  str = gst_caps_get_structure (caps, 0);
+  if (!gst_structure_get_int (str, "width", &width) ||
+      !gst_structure_get_int (str, "height", &height)) {
+    g_print ("No width/height available\n");
+    return;
+  }
+
+  g_print ("The video size of this set of capabilities is %dx%d\n",
+       width, height);
+}
+
+--Creating capabilities for filtering --
+
+static void
+read_video_props (GstCaps *caps)
+{
+  gint width, height;
+  const GstStructure *str;
+
+  g_return_if_fail (gst_caps_is_fixed (caps));
+
+  str = gst_caps_get_structure (caps, 0);
+  if (!gst_structure_get_int (str, "width", &width) ||
+      !gst_structure_get_int (str, "height", &height)) {
+    g_print ("No width/height available\n");
+    return;
+  }
+
+  g_print ("The video size of this set of capabilities is %dx%d\n",
+       width, height);
+}
+
+This will force the data between those two elements to a certain video format,
+width, height and framerate.
+
+Keep in mind that when you use gst_element_link_filtered () it will automatically
+create a capsfilter element for you and insert it into your bin or pipeline between 
+the two elements you want to connect (this is important if you ever want to disconnect
+those elements because then you will have to disconnect both elements from the capsfilter instead).
+
+

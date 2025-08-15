@@ -1,0 +1,64 @@
+--Linking Elements--
+
+source	       filter   	 sink
+	src -->  sink   src--> sink
+	output  input  output   input
+
+The linking code goes like::
+
+#include <gst/gst.h>
+
+int main(int argc, char **argv){
+	GstElement *pipeline;
+	GstElement *source, *filter, *sink;
+
+	gst_init(&argv, &argv);
+
+	/* Create pipeline */
+	pipeline = gst_pipeline_new("my-pipeline");
+	
+	/* Create elements */
+
+	source = gst_element_factory_make("fakesrc","source");
+	filter = gst_element_factory_make("identity", "filter");
+	sink = gst_element_factory_make("fakesink", "sink");
+	
+	/*must add elements to pipeline before linking them */
+	gst_bin_add_many(GST_BIN(pipeline), source, filter, sink, NULL);
+
+	/* link */
+	if(!gst_element_link_many(source, filter, sink, NULL)){
+	g_warningt("Failed to link elements!");
+	}
+	[..]
+	}
+
+	You must add elements to a bin or pipeline befoure linking them.
+	Since addding an element to a bin will dissconnect any already 
+	existing links.
+
+	Element States::
+	GST_STATE_NULL ->Default state ,no resources are allocated.
+	GST_STATE_READY -> Resources allocated,streaming positions is 
+	automativally zero.
+	GST_STATE_PAUSED->Element has opened the stream,but not actively
+	processing.
+	
+	Elements going into the PAUSED state should
+	prepare themself for moving over to the 
+	PLAYING state as soon as possible.
+
+	GST_STATE_PLAYING:An element does exactly same
+	as in the PAUSED state,except that the clock now
+	runs.
+
+	You can change the state of an element using function::
+	gst_element_set_state().
+
+
+
+
+
+
+
+}

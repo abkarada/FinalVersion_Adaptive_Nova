@@ -1,0 +1,48 @@
+--Bins--
+A bin is a container element.You can add elements to a bin.
+Since bin is an element itsefl, a bin can be handled in the
+same way as any other element.
+--Creating a bin--
+Bins are created in the smae way what other elements are created,
+via element factory.The are also convenience functions available:
++gst_bin_new()
++gst_pipeline_new()
+To add elements to a bin or remove, you can simply use:
++gst_bin_add()
++gst_bin_remove()
+
+--I must remember that this all pipelines,bins are GstElement.--
+
+#include <gst/gst.h>
+
+int main(int argc, char **argv) {
+GstElement *bin, *pipeline, *source, *sink;
+
+gst_init(&argc, &argv);
+
+pipeline =gst_pipeline_new("my_pipeline");
+bin = gst_bin_new("my_bin");
+source = gst_element_factory_make("fakesrc", "source");
+sink = gst_element_factory_make("fakesink", "sink");
+
+/* First add the elements to the bin */
+gst_bin_add_many(GST_BIN(bin), source, sink, NULL);
+/* add the bin to the pipeline */
+gst_bin_add(GST_BIN(pipeline), bin);
+
+/* link the elements */
+
+if(!gst_element_link(source, sink)){
+
+return -1;
+}
+}
+
+--Bins are simply the SuperClass of the Children(As a GST_STATE_?!)--
+
+Bins manage the state of all elements contained in them. If you set a bin
+(or a pipeline, which is a special top-level type of bin) to a certain target
+state using gst_element_set_state (), it will make sure all elements contained
+within it will also be set to this state. This means it's usually only necessary
+to set the state of the top-level pipeline to start up the pipeline or shut it down.
+
