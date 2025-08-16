@@ -41,14 +41,21 @@ int main(int argc, char **argv)
     GstElement *src      = gst_element_factory_make("v4l2src", "src");
     GstElement *mjpg_cf  = gst_element_factory_make("capsfilter", "mjpg_caps");
    
-    GstElement *dec      = NULL;
+    const char *dec_name = NULL;
+    if (strstr(sink_name, "vaapi") || strstr(post_name, "vaapi")) {
+        dec_name = "vaapijpegdec";
+    } else if (strstr(sink_name, "nv") || strstr(post_name, "nv")) {
+        dec_name = "nvjpegdec";
+    } else {
+        dec_name = "jpegdec"; // Fallback
+    }
+
+    GstElement *dec      = gst_element_factory_make(dec_name, "dec");
     GstElement *post     = NULL;
     GstElement *sink     = NULL;
     
-    GstElement *fps_sink = gst_element_factory_make("fpsdisplaysink", "fps");
-
-    if (!pipeline || !src || !mjpg_cf || !fps_sink) {
-        g_printerr("Failed to create base or fps elements\n");
+    if (!pipeline || !src || !mjpg_cf || !dec) {
+        g_printerr("Failed to create base or decoder elements\n");
         return 1;
     }
 
@@ -64,59 +71,52 @@ int main(int argc, char **argv)
     g_object_set(mjpg_cf, "caps", mjpg_caps, NULL);
     gst_caps_unref(mjpg_caps);
 
-    if ((post_name && str_contains(post_name, "vaapi")) ||
-        (sink_name && str_contains(sink_name, "vaapi")) ||
-        gst_element_factory_find("vaapijpegdec")) {
-        dec = gst_element_factory_make("vaapijpegdec", "dec");
-    } else if ((post_name && (str_contains(post_name, "nv") || str_contains(post_name, "cuda"))) ||
-               (sink_name && (str_contains(sink_name, "nv") || str_contains(sink_name, "cuda"))) ||
-               gst_element_factory_find("nvjpegdec")) {
-        dec = gst_element_factory_make("nvjpegdec", "dec"); // NV codec kuruluysa
-    } else {
-        dec = gst_element_factory_make("jpegdec", "dec");   // CPU fallback
-    }
-    if (!dec) { g_printerr("Failed to create JPEG decoder\n"); return 1; }
-
-    // Post-proc (opsiyonel): varsa ekle; yoksa atla
     if (post_name) post = gst_element_factory_make(post_name, "gpu_post");
 
-    // Sink seçimi: önce tespit edilen, yoksa autovideosink
     if (sink_name) sink = gst_element_factory_make(sink_name, "gpu_sink");
     if (!sink)     sink = gst_element_factory_make("autovideosink", "sink");
     if (!sink)   { g_printerr("Failed to create sink\n"); return 1; }
 
-    // fpsdisplaysink'in video-sink özelliğini bizim GPU sink'imizle ayarla
-    g_object_set(fps_sink, "video-sink", sink, "sync", FALSE, NULL);
+    g_print(" > Selected postproc: %s\n", post_name ? post_name : "none");
+    g_print(" > Selected sink: %s\n", sink_name ? sink_name : "autovideosink (fallback)");
+    g_print(" > Selected decoder: %s\n", dec_name);
 
-    // Pipeline’a elemanları ekle
-    if (post)
-        gst_bin_add_many(GST_BIN(pipeline), src, mjpg_cf, dec, post, fps_sink, NULL);
-    else
-        gst_bin_add_many(GST_BIN(pipeline), src, mjpg_cf, dec, fps_sink, NULL);
+    g_object_set(sink, "sync", FALSE, NULL);
 
+    if (post) {
+        GstElement *gpu_cf = gst_element_factory_make("capsfilter", "gpu_caps");
+        if (!gpu_cf) { g_printerr("Failed to create gpu capsfilter\n"); return 1; }
 
-    // Bağlantılar
-    gboolean linked = FALSE;
-    if (post)
-        linked = gst_element_link_many(src, mjpg_cf, dec, post, fps_sink, NULL);
-    else
-        linked = gst_element_link_many(src, mjpg_cf, dec, fps_sink, NULL);
+        GstCaps *gpu_caps = gst_caps_from_string("video/x-raw(memory:DMABuf)");
+        if (post_name && strstr(post_name, "vaapi")) {
+            gst_caps_unref(gpu_caps);
+            gpu_caps = gst_caps_from_string("video/x-raw(memory:VASurface)");
+        }
+        g_object_set(gpu_cf, "caps", gpu_caps, NULL);
+        gst_caps_unref(gpu_caps);
 
-    if (!linked) {
-        g_printerr("Failed to link elements (likely caps mismatch)\n");
-        return 1;
+        gst_bin_add_many(GST_BIN(pipeline), src, mjpg_cf, dec, post, gpu_cf, sink, NULL);
+        gboolean linked = gst_element_link_many(src, mjpg_cf, dec, post, gpu_cf, sink, NULL);
+        if (!linked) {
+            g_printerr("Failed to link elements with GPU memory caps\n");
+            return 1;
+        }
+    } else {
+        gst_bin_add_many(GST_BIN(pipeline), src, mjpg_cf, dec, sink, NULL);
+        gboolean linked = gst_element_link_many(src, mjpg_cf, dec, sink, NULL);
+        if (!linked) {
+            g_printerr("Failed to link elements (simple)\n");
+            return 1;
+        }
     }
 
-    // Bus & run
+
     GstBus *bus = gst_element_get_bus(pipeline);
     gst_bus_add_watch(bus, bus_call, loop);
     gst_object_unref(bus);
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
-    g_print("Running camera preview with FPS counter...\n");
-    g_print(" > Decode on: %s\n",
-            (gst_element_factory_find("vaapijpegdec") ? "VAAPI" :
-             gst_element_factory_find("nvjpegdec") ? "NVDEC" : "CPU"));
+    g_print("Running camera preview...\n");
     g_main_loop_run(loop);
 
     gst_element_set_state(pipeline, GST_STATE_NULL);
